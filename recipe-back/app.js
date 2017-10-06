@@ -174,7 +174,7 @@ app.post('/recipesSQL', function (req, res) {
             query_string += "')";      
 
 
-            // INSERT INTO recipes (name, ingr) VALUES ('Good morning Liana', 'Have a great day, I love you, drive safe, see you tonight, made you a sandwich');
+            // INSERT INTO recipes (name, ingr) VALUES ('Good morning', 'Have a great day, I love you, drive safe, see you tonight, made you a sandwich');
             
             console.log(query_string);
             client.query(query_string, (err, data) => {
