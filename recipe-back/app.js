@@ -1,20 +1,58 @@
 // *** Boilerplate to include for the server
 const express = require('express')
 const app = express()
-const port = 3001;
+
+// grab heroku port, or deploy normally, depending 
+const port = process.env.PORT || 3001;
 
 // database stuff
 const { Client } = require('pg')
+//var pg = require('pg');
 
-const client = new Client({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'postgres',
-    password: 'password',
-    port: 5432,
-})
+if (!process.env.PORT) {
+    var client = new Client({
+        user: 'postgres',
+        host: 'localhost',
+        database: 'postgres',
+        password: 'password',
+        port: 5432,
+    });
+    client.connect();
+    // console.log("########## loaded local pg client ########## ");
+}
 
-client.connect()
+else {
+    // console.log("########## loaded -REMOTE HEROKU- pg client ########## ");
+    var client = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: true,
+    });
+
+    client.connect();
+
+    // test the connection 
+    client.query('SELECT table_schema,table_name FROM information_schema.tables;', (err, res) => {
+        if (err) throw err;
+        for (let row of res.rows) {
+            // console.log(JSON.stringify(row));
+        }
+        //client.end();
+    });
+
+    // test read of the database
+    client.query('SELECT * FROM recipes;', (err, res) => {
+        if (err) throw err;
+        for (let row of res.rows) {
+            // console.log(JSON.stringify(row));
+        }
+        //client.end();
+    });
+
+
+
+}
+
+
 
 // Turns a string of ingredients into an array of ingredients
 function listify(stringData) {
@@ -28,9 +66,9 @@ function listify(stringData) {
 
 
 // Turns an array of ingredients into a list of ingredients
-function listToString(arrayData){
+function listToString(arrayData) {
     return arrayData.join(', ');
-  }
+}
 
 
 
@@ -43,7 +81,7 @@ app.use(express.static('public'))
 
 // middleware function to log for the sake of logging
 var myLogger = function (req, res, next) {
-    console.log('LOGGED')
+    // console.log('LOGGED')
     next()
 }
 
@@ -117,7 +155,8 @@ app.get('/recipes', function (req, res) {
 // api route to test integration with frontend
 app.get('/recipesSQL', function (req, res) {
     // And insert something like this instead:
-    client.query('SELECT * FROM public.recipes', (err, data) => {
+    // just removed public.recipes to test
+    client.query('SELECT * FROM recipes;', (err, data) => {
         var recipe_list = [];
         for (let i = 0; i < data.rows.length; i++) {
             let new_recipe = {};
@@ -125,11 +164,11 @@ app.get('/recipesSQL', function (req, res) {
             new_recipe.ingr = listify(data.rows[i].ingr);
             new_recipe.edit = false;
             recipe_list.push(new_recipe);
-            console.log(new_recipe);
+            //console.log(new_recipe);
         }
         //client.end();
-        console.log("Sending back the recipe list!");
-        console.log(recipe_list);
+        // console.log("Sending back the recipe list!");
+        // console.log(recipe_list);
         res.json(recipe_list);
     })
 
@@ -139,7 +178,7 @@ app.get('/recipesSQL', function (req, res) {
 // api route to test integration with frontend
 // This is hacky and... suboptimal
 app.post('/recipesSQL', function (req, res) {
-    console.log("POST API endpoint hit!");
+    // console.log("POST API endpoint hit!");
     //console.log(req);
 
     // node.js boiilterplate for handling a body stream from the PUT request
@@ -149,15 +188,12 @@ app.post('/recipesSQL', function (req, res) {
     }).on('end', () => {
         body = Buffer.concat(body).toString();
         // at this point, `body` has the entire request body stored in it as a string
-        console.log("Body is: " + body);
+        // console.log("Body is: " + body);
 
         // clear the old table      
-
-        client.query('DELETE FROM public.recipes', (err, data) => {
-            console.log("I just deleted the recipes table, sorry.");
+        client.query('DELETE FROM recipes', (err, data) => {
+            //console.log("I just deleted the recipes table, sorry.");
         });
-
-        
 
         // access the resulting body JSON
         var payload = JSON.parse(body);
@@ -165,42 +201,65 @@ app.post('/recipesSQL', function (req, res) {
 
 
         // loop through that JSON and persist the data freshly to a new table
-        for (let i = 0; i < payload.length; i++)
-        {
-            let query_string = "INSERT INTO public.recipes (name, ingr) VALUES ('";
-            query_string += payload[i].name;
+        for (let i = 0; i < payload.length; i++) {
+            let query_string = "INSERT INTO recipes (name, ingr) VALUES ($1, $2)";
+            let query_values = [payload[i].name, listToString(payload[i].ingr)];
+            /*query_string += payload[i].name;
             query_string += "', '";
             query_string += listToString(payload[i].ingr);
-            query_string += "')";      
+            query_string += "')";*/
 
 
             // INSERT INTO recipes (name, ingr) VALUES ('Good morning', 'Have a great day, I love you, drive safe, see you tonight, made you a sandwich');
-            
-            console.log(query_string);
-            client.query(query_string, (err, data) => {
+
+            // console.log(query_string);
+
+            client.query(query_string, query_values, (err, data) => {
                 //console.log(err);
             });
         }
 
-
-
-
         res.json("ok all is good thank you");
     });
 
+});
 
+// Add recipe endpoint, for when a new recipe is submitted (CREATE)
+app.post('/addrecipe', function (req, res) {
+    // console.log("Add recipe API endpoint hit!");
+    // node.js boiilterplate for handling a body stream from the PUT request
+    let body = [];
+    req.on('data', (chunk) => {
+        body.push(chunk);
+    }).on('end', () => {
+        body = Buffer.concat(body).toString();
+        // at this point, `body` has the entire request body stored in it as a string
+        // console.log("Body is: " + body);
 
+        // access the resulting body JSON
+        var payload = JSON.parse(body);
+        // console.log("Payload is: ");
+        // console.log(payload); 
 
+        let query_string = "INSERT INTO recipes (name, ingr) VALUES ($1, $2)";
+        let query_values = [payload.name, listToString(payload.ingr)];
 
+        /*let query_string = "INSERT INTO recipes (name, ingr) VALUES ('";
+        query_string += payload.name;
+        query_string += "', '";
+        query_string += listToString(payload.ingr);
+        query_string += "')";*/
 
+        // console.log(query_string);
+        client.query(query_string, query_values, (err, data) => {
+            //console.log(err);
+            //console.log("Data:");
+            // console.log(data);
+        });       
 
-})
-
-
-
-
-
-
+        res.json("ok all is good thank you");
+    });
+});
 
 app.get('/ab*cd', function (req, res) {
     res.send('Hello World! Also you followed the ab*cd pattern. Cool!')
@@ -220,7 +279,7 @@ app.get('/users/:userId/books/:bookId', function (req, res) {
 
 // Using next and multiple callback functions
 app.get('/example/b', function (req, res, next) {
-    console.log('the response will be sent by the next function ...')
+    // console.log('the response will be sent by the next function ...')
     next()
 }, function (req, res) {
     res.send('Hello from B!')
@@ -250,5 +309,5 @@ app.route('/book')
 
 // *** Start up the server:
 app.listen(port, function () {
-    console.log('Example app listening on port ' + port + '!')
+    console.log('App up and listening on port ' + port + '!')
 })

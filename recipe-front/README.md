@@ -7,6 +7,8 @@ Front: npm start
 
 Back: node app.js
 
+Build: npm run build
+
 Deploy:
 
 git push heroku master

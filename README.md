@@ -1,8 +1,16 @@
-Each folder is its own horrible hacky npm node directory
+# Recipe Box
 
-this is held together with off-brand ductape and prayer never look at the files in this project
+Each folder is its own horrible hacky npm node directory. I started with Create React App and then made terrible, horrible, no-good choices implementing my own server. Things got bad. 
+
+This is held together with off-brand ductape and prayer never look at the files in this project
 
 never do anything like this
+
+don't look at this
+
+why are you here
+
+please go
 
 thank you
 
