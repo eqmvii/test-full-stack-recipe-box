@@ -14,6 +14,7 @@ please go
 
 thank you
 
+(see it live here: https://eqmvii-recipes-full-stack.herokuapp.com)
 - - - -
 
 Local testing steps:
